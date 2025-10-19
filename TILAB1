@@ -1,0 +1,437 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import numpy as np
+
+class MainApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Теория информации - Выбор варианта")
+        self.root.geometry("400x200")
+        
+        label = tk.Label(root, text="Выберите вариант ввода данных:", font=("Arial", 12))
+        label.pack(pady=20)
+        
+        # Варианты ввода
+        self.choice_var = tk.StringVar(value="1")
+        
+        options = [
+            ("1. A, P(B|A)", "1"),
+            ("2. B, P(A|B)", "2"), 
+            ("3. P(A,B)", "3")
+        ]
+        
+        for text, value in options:
+            tk.Radiobutton(root, text=text, variable=self.choice_var, 
+                          value=value, font=("Arial", 10)).pack(anchor="w", padx=50)
+        
+        # Кнопка выбора
+        tk.Button(root, text="Выбрать", command=self.open_input_window, 
+                 font=("Arial", 10), bg="lightblue").pack(pady=20)
+    
+    def open_input_window(self):
+        choice = self.choice_var.get()
+        self.root.withdraw()  # Скрыть главное окно
+        
+        # Открываем окно выбора размеров для всех вариантов
+        SizeSelectionWindow(self.root, choice)
+
+class SizeSelectionWindow:
+    """Окно выбора размеров матрицы"""
+    def __init__(self, main_root, variant):
+        self.main_root = main_root
+        self.variant = variant
+        self.window = tk.Toplevel(main_root)
+        self.window.title("Выбор размеров")
+        self.window.geometry("400x300")
+        
+        tk.Label(self.window, text="Выберите размеры матрицы:", font=("Arial", 12)).pack(pady=20)
+        
+        # Количество строк (размер A)
+        tk.Label(self.window, text="Количество строк (размер ансамбля A):", font=("Arial", 10)).pack(pady=5)
+        self.rows_entry = tk.Entry(self.window, width=10)
+        self.rows_entry.pack(pady=5)
+        self.rows_entry.insert(0, "2")
+        
+        # Количество столбцов (размер B)
+        tk.Label(self.window, text="Количество столбцов (размер ансамбля B):", font=("Arial", 10)).pack(pady=5)
+        self.cols_entry = tk.Entry(self.window, width=10)
+        self.cols_entry.pack(pady=5)
+        self.cols_entry.insert(0, "4")
+        
+        # Кнопка подтверждения
+        tk.Button(self.window, text="Задать размеры матрицы", command=self.create_input_window, 
+                 bg="lightgreen", font=("Arial", 10)).pack(pady=20)
+        
+        tk.Button(self.window, text="Назад", command=self.back).pack()
+    
+    def create_input_window(self):
+        try:
+            rows = int(self.rows_entry.get())
+            cols = int(self.cols_entry.get())
+            
+            if rows <= 0 or cols <= 0:
+                raise ValueError("Размеры должны быть положительными числами")
+                
+            self.window.destroy()
+            
+            # Создаем соответствующее окно ввода с выбранными размерами
+            if self.variant == "1":
+                InputWindow1(self.main_root, rows, cols)
+            elif self.variant == "2":
+                InputWindow2(self.main_root, rows, cols)
+            elif self.variant == "3":
+                InputWindow3(self.main_root, rows, cols)
+                
+        except ValueError as e:
+            messagebox.showerror("Ошибка", f"Некорректные размеры: {str(e)}")
+    
+    def back(self):
+        self.window.destroy()
+        self.main_root.deiconify()
+
+class InputWindow1:
+    """Окно ввода для варианта 1: A, P(B|A)"""
+    def __init__(self, main_root, rows, cols):
+        self.main_root = main_root
+        self.rows = rows
+        self.cols = cols
+        self.window = tk.Toplevel(main_root)
+        self.window.title("Ввод данных: A, P(B|A)")
+        self.window.geometry("600x500")
+        
+        # Ансамбль A
+        tk.Label(self.window, text=f"Ансамбль A (введите {rows} вероятностей через пробел):", 
+                font=("Arial", 10)).pack(pady=5)
+        self.a_entry = tk.Entry(self.window, width=50)
+        self.a_entry.pack(pady=5)
+        tk.Label(self.window, text=f"Пример для {rows} значений: {' '.join(['0.2', '0.8'][:rows])}", 
+                font=("Arial", 8), fg="gray").pack()
+        
+        # Условные вероятности P(B|A)
+        tk.Label(self.window, text=f"Условные вероятности P(B|A) ({rows}×{cols} матрица):", 
+                font=("Arial", 10)).pack(pady=5)
+        
+        # Создаем фрейм для матрицы
+        matrix_frame = tk.Frame(self.window)
+        matrix_frame.pack(pady=5)
+        
+        self.matrix_entries = []
+        for i in range(rows):
+            row_entries = []
+            for j in range(cols):
+                entry = tk.Entry(matrix_frame, width=8)
+                entry.grid(row=i, column=j, padx=2, pady=2)
+                row_entries.append(entry)
+            self.matrix_entries.append(row_entries)
+        
+        tk.Label(self.window, text="Введите построчно, каждая строка - для одного a_i", 
+                font=("Arial", 8), fg="gray").pack()
+        
+        tk.Button(self.window, text="Рассчитать", command=self.calculate, bg="lightgreen").pack(pady=10)
+        tk.Button(self.window, text="Назад", command=self.back).pack()
+        
+    def calculate(self):
+        try:
+            # Парсим ансамбль A
+            a_text = self.a_entry.get().strip()
+            if not a_text:
+                raise ValueError("Введите ансамбль A")
+                
+            a_probs = list(map(float, a_text.split()))
+            if len(a_probs) != self.rows:
+                raise ValueError(f"Ожидается {self.rows} значений для A, получено {len(a_probs)}")
+            
+            # Парсим матрицу условных вероятностей
+            cond_probs = []
+            for i in range(self.rows):
+                row = []
+                for j in range(self.cols):
+                    value = self.matrix_entries[i][j].get().strip()
+                    if not value:
+                        raise ValueError(f"Пустое значение в ячейке [{i+1},{j+1}]")
+                    row.append(float(value))
+                cond_probs.append(row)
+            
+            # Проверяем корректность данных
+            if abs(sum(a_probs) - 1.0) > 0.001:
+                raise ValueError(f"Сумма вероятностей A должна быть равна 1 (получено {sum(a_probs)})")
+                
+            for i, row in enumerate(cond_probs):
+                if abs(sum(row) - 1.0) > 0.001:
+                    raise ValueError(f"Сумма условных вероятностей в строке {i+1} должна быть равна 1 (получено {sum(row)})")
+            
+            # Вызываем расчетный модуль
+            results = calculate_from_variant1(a_probs, cond_probs)
+            
+            # Показываем результаты
+            show_results(results)
+            
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Некорректные данные: {str(e)}")
+    
+    def back(self):
+        self.window.destroy()
+        self.main_root.deiconify()
+
+class InputWindow2:
+    """Окно ввода для варианта 2: B, P(A|B)"""
+    def __init__(self, main_root, rows, cols):
+        self.main_root = main_root
+        self.rows = rows  # размер A
+        self.cols = cols  # размер B
+        self.window = tk.Toplevel(main_root)
+        self.window.title("Ввод данных: B, P(A|B)")
+        self.window.geometry("600x500")
+        
+        # Ансамбль B
+        tk.Label(self.window, text=f"Ансамбль B (введите {cols} вероятностей через пробел):", 
+                font=("Arial", 10)).pack(pady=5)
+        self.b_entry = tk.Entry(self.window, width=50)
+        self.b_entry.pack(pady=5)
+        
+        # Условные вероятности P(A|B)
+        tk.Label(self.window, text=f"Условные вероятности P(A|B) ({cols}×{rows} матрица, по столбцам B):", 
+                font=("Arial", 10)).pack(pady=5)
+        
+        # Создаем фрейм для матрицы (транспонированной)
+        matrix_frame = tk.Frame(self.window)
+        matrix_frame.pack(pady=5)
+        
+        self.matrix_entries = []
+        for j in range(cols):  # по B
+            col_entries = []
+            for i in range(rows):  # по A
+                entry = tk.Entry(matrix_frame, width=8)
+                entry.grid(row=i, column=j, padx=2, pady=2)
+                col_entries.append(entry)
+            self.matrix_entries.append(col_entries)
+        
+        tk.Label(self.window, text="Каждый столбец - условное распределение P(A|b_j)", 
+                font=("Arial", 8), fg="gray").pack()
+        
+        tk.Button(self.window, text="Рассчитать", command=self.calculate, bg="lightgreen").pack(pady=10)
+        tk.Button(self.window, text="Назад", command=self.back).pack()
+        
+    def calculate(self):
+        try:
+            # Парсим ансамбль B
+            b_text = self.b_entry.get().strip()
+            if not b_text:
+                raise ValueError("Введите ансамбль B")
+                
+            b_probs = list(map(float, b_text.split()))
+            if len(b_probs) != self.cols:
+                raise ValueError(f"Ожидается {self.cols} значений для B, получено {len(b_probs)}")
+            
+            # Парсим матрицу условных вероятностей
+            cond_probs = []
+            for j in range(self.cols):
+                col = []
+                for i in range(self.rows):
+                    value = self.matrix_entries[j][i].get().strip()
+                    if not value:
+                        raise ValueError(f"Пустое значение в ячейке [{i+1},{j+1}]")
+                    col.append(float(value))
+                cond_probs.append(col)
+            
+            # Проверяем корректность данных
+            if abs(sum(b_probs) - 1.0) > 0.001:
+                raise ValueError(f"Сумма вероятностей B должна быть равна 1 (получено {sum(b_probs)})")
+                
+            for j, col in enumerate(cond_probs):
+                if abs(sum(col) - 1.0) > 0.001:
+                    raise ValueError(f"Сумма условных вероятностей в столбце {j+1} должна быть равна 1 (получено {sum(col)})")
+            
+            # Вызываем расчетный модуль
+            results = calculate_from_variant2(b_probs, cond_probs)
+            
+            # Показываем результаты
+            show_results(results)
+            
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Некорректные данные: {str(e)}")
+    
+    def back(self):
+        self.window.destroy()
+        self.main_root.deiconify()
+
+class InputWindow3:
+    """Окно ввода для варианта 3: P(A,B)"""
+    def __init__(self, main_root, rows, cols):
+        self.main_root = main_root
+        self.rows = rows
+        self.cols = cols
+        self.window = tk.Toplevel(main_root)
+        self.window.title("Ввод данных: P(A,B)")
+        self.window.geometry("600x500")
+        
+        # Совместные вероятности P(A,B)
+        tk.Label(self.window, text=f"Совместные вероятности P(A,B) ({rows}×{cols} матрица):", 
+                font=("Arial", 10)).pack(pady=5)
+        
+        # Создаем фрейм для матрицы
+        matrix_frame = tk.Frame(self.window)
+        matrix_frame.pack(pady=5)
+        
+        self.matrix_entries = []
+        for i in range(rows):
+            row_entries = []
+            for j in range(cols):
+                entry = tk.Entry(matrix_frame, width=8)
+                entry.grid(row=i, column=j, padx=2, pady=2)
+                row_entries.append(entry)
+            self.matrix_entries.append(row_entries)
+        
+        tk.Label(self.window, text="Введите построчно, каждая строка - для одного a_i", 
+                font=("Arial", 8), fg="gray").pack()
+        
+        tk.Button(self.window, text="Рассчитать", command=self.calculate, bg="lightgreen").pack(pady=10)
+        tk.Button(self.window, text="Назад", command=self.back).pack()
+        
+    def calculate(self):
+        try:
+            # Парсим матрицу совместных вероятностей
+            joint_probs = []
+            for i in range(self.rows):
+                row = []
+                for j in range(self.cols):
+                    value = self.matrix_entries[i][j].get().strip()
+                    if not value:
+                        raise ValueError(f"Пустое значение в ячейке [{i+1},{j+1}]")
+                    row.append(float(value))
+                joint_probs.append(row)
+            
+            # Проверяем корректность данных
+            total_sum = sum(sum(row) for row in joint_probs)
+            if abs(total_sum - 1.0) > 0.001:
+                raise ValueError(f"Сумма всех совместных вероятностей должна быть равна 1 (получено {total_sum})")
+            
+            # Вызываем расчетный модуль
+            results = calculate_from_variant3(joint_probs)
+            
+            # Показываем результаты
+            show_results(results)
+            
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Некорректные данные: {str(e)}")
+    
+    def back(self):
+        self.window.destroy()
+        self.main_root.deiconify()
+
+# Расчетные функции (остаются без изменений)
+def calculate_from_variant1(a_probs, cond_probs):
+    """Расчет всех величин из варианта 1: A, P(B|A)"""
+    a_probs = np.array(a_probs)
+    cond_probs = np.array(cond_probs)
+    
+    # Совместные вероятности P(A,B) = P(A) * P(B|A)
+    joint_probs = a_probs.reshape(-1, 1) * cond_probs
+    
+    # Маргиналы B
+    b_probs = np.sum(joint_probs, axis=0)
+    
+    # Условные P(A|B)
+    a_given_b = joint_probs / b_probs
+    a_given_b = np.nan_to_num(a_given_b)
+    
+    results = calculate_all_measures(a_probs, b_probs, joint_probs, cond_probs, a_given_b)
+    return results
+
+def calculate_from_variant2(b_probs, cond_probs):
+    """Расчет всех величин из варианта 2: B, P(A|B)"""
+    b_probs = np.array(b_probs)
+    cond_probs = np.array(cond_probs)
+    
+    # Транспонируем, чтобы получить P(A|B) в нужной форме
+    cond_probs = cond_probs.T
+    
+    # Совместные вероятности P(A,B) = P(B) * P(A|B)
+    joint_probs = cond_probs * b_probs
+    
+    # Маргиналы A
+    a_probs = np.sum(joint_probs, axis=1)
+    
+    # Условные P(B|A)
+    b_given_a = joint_probs / a_probs.reshape(-1, 1)
+    b_given_a = np.nan_to_num(b_given_a)
+    
+    results = calculate_all_measures(a_probs, b_probs, joint_probs, b_given_a, cond_probs)
+    return results
+
+def calculate_from_variant3(joint_probs):
+    """Расчет всех величин из варианта 3: P(A,B)"""
+    joint_probs = np.array(joint_probs)
+    
+    a_probs = np.sum(joint_probs, axis=1)
+    b_probs = np.sum(joint_probs, axis=0)
+    
+    b_given_a = joint_probs / a_probs.reshape(-1, 1)
+    b_given_a = np.nan_to_num(b_given_a)
+    
+    a_given_b = joint_probs / b_probs
+    a_given_b = np.nan_to_num(a_given_b)
+    
+    results = calculate_all_measures(a_probs, b_probs, joint_probs, b_given_a, a_given_b)
+    return results
+
+def calculate_all_measures(a_probs, b_probs, joint_probs, cond_ba, cond_ab):
+    """Вычисление всех информационных мер"""
+    h_a = -np.sum(a_probs * np.log2(a_probs, where=(a_probs>0)))
+    h_b = -np.sum(b_probs * np.log2(b_probs, where=(b_probs>0)))
+    h_ab = -np.sum(joint_probs * np.log2(joint_probs, where=(joint_probs>0)))
+    h_b_given_a = -np.sum(joint_probs * np.log2(cond_ba, where=(cond_ba>0)))
+    h_a_given_b = -np.sum(joint_probs * np.log2(cond_ab, where=(cond_ab>0)))
+    i_ab = h_a - h_a_given_b
+    
+    return {
+        'a_probs': a_probs,
+        'b_probs': b_probs, 
+        'joint_probs': joint_probs,
+        'cond_ba': cond_ba,
+        'cond_ab': cond_ab,
+        'h_a': h_a,
+        'h_b': h_b,
+        'h_ab': h_ab,
+        'h_b_given_a': h_b_given_a,
+        'h_a_given_b': h_a_given_b,
+        'i_ab': i_ab
+    }
+
+def show_results(results):
+    """Окно с результатами"""
+    result_window = tk.Toplevel()
+    result_window.title("Результаты расчетов")
+    result_window.geometry("600x500")
+    
+    text = tk.Text(result_window, wrap=tk.WORD)
+    text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+    
+    output = f"""Результаты:
+
+Рекомбль A: {', '.join(f'{p:.4f}' for p in results['a_probs'])}
+Рекомбль B: {', '.join(f'{p:.4f}' for p in results['b_probs'])}
+Энтропия H(A): {results['h_a']:.4f}
+Энтропия H(B): {results['h_b']:.4f}
+Условная энтропия H(B|A): {results['h_b_given_a']:.4f}
+Условная энтропия H(A|B): {results['h_a_given_b']:.4f}
+Совместная энтропия H(AB): {results['h_ab']:.4f}
+Взаимная информация I(A;B): {results['i_ab']:.4f}
+
+Условные вероятности P(b|a):
+"""
+    for row in results['cond_ba']:
+        output += ' '.join(f'{p:.4f}' for p in row) + '\n'
+    
+    output += "\nУсловные вероятности P(a|b):\n"
+    for row in results['cond_ab']:
+        output += ' '.join(f'{p:.4f}' for p in row) + '\n'
+    
+    text.insert(tk.END, output)
+    text.config(state=tk.DISABLED)
+
+# Запуск приложения
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = MainApp(root)
+    root.mainloop()
