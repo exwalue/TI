@@ -7,7 +7,7 @@ import math
 # ---------- Shannon-Fano ----------
 def shannon_fano(symbols_probs):
     if len(symbols_probs) == 1:
-        return {symbols_probs[0][0]: '0'}
+        return {symbols_probs[0][0]: ''}  # ← ПУСТАЯ СТРОКА!
 
     symbols_probs.sort(key=lambda x: x[1], reverse=True)
     total = sum(p for _, p in symbols_probs)
@@ -28,12 +28,12 @@ def shannon_fano(symbols_probs):
     right_codes = shannon_fano(right)
 
     codes = {}
-    for sym in left_codes:
-        codes[sym] = '0' + left_codes[sym]
-    for sym in right_codes:
-        codes[sym] = '1' + right_codes[sym]
+    for sym, code in left_codes.items():
+        codes[sym] = '0' + code
+    for sym, code in right_codes.items():
+        codes[sym] = '1' + code
     return codes
-
+    
 # ---------- Huffman ----------
 class Node:
     def __init__(self, symbol=None, freq=0, left=None, right=None):
@@ -197,4 +197,5 @@ class InfoTheoryApp:
 if __name__ == "__main__":
     root = tk.Tk()
     app = InfoTheoryApp(root)
+
     root.mainloop()
